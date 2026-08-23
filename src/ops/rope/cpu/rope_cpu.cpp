@@ -6,14 +6,14 @@
 
 template <typename T>
 void rope_(T *out, const T *in, const int64_t *pos_ids, float theta, size_t seqlen, size_t nhead, size_t d) {
-    #pragma omp parallel for
+#pragma omp parallel for
     for (int64_t i = 0; i < static_cast<int64_t>(seqlen); i++) {
-        for (size_t h = 0; h < nhead; h++) {
-            for (size_t j = 0; j < d / 2; j++) {
+        for (size_t j = 0; j < d / 2; j++) {
+            float angle = static_cast<float>(pos_ids[i]) / std::pow(theta, 2.0f * static_cast<float>(j) / static_cast<float>(d)); // avoid MSVC C4244 under /WX
+            float cos_angle = std::cos(angle);                                                                                    // TODO precompute a table
+            float sin_angle = std::sin(angle);
+            for (size_t h = 0; h < nhead; h++) {
                 size_t idx = i * nhead * d + h * d + j;
-                float angle = static_cast<float>(pos_ids[i]) / std::pow(theta, 2.0f * static_cast<float>(j) / static_cast<float>(d)); // avoid MSVC C4244 under /WX
-                float cos_angle = std::cos(angle);
-                float sin_angle = std::sin(angle);
                 if constexpr (std::is_same_v<T, llaisys::bf16_t> || std::is_same_v<T, llaisys::fp16_t>) {
                     float a_ij = llaisys::utils::cast<float>(in[idx]);
                     float b_ij = llaisys::utils::cast<float>(in[idx + d / 2]);
