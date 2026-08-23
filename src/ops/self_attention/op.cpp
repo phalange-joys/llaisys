@@ -15,6 +15,8 @@ void self_attention(tensor_t attn_val, tensor_t q, tensor_t k, tensor_t v, float
     // atten_val [seqlen, nhead, dv]
     // q [seqlen, nhead, d], k  [total_len, nkvhead, d], v [total_len, nkvhead, dv]
     // total_len = seqlen + past_len, nkvhead = nhead * nkv_ratio
+    // (now qwen2) GQA(Group Query Attention) more than one q-heads share the same k-head
+    // future tokens: no need to compute, since softmax value = exp(-inf) ~ 0
     CHECK_ARGUMENT(k->shape() == v->shape(), "Self -Attention: key and value tensors must have the same shape.");
     CHECK_ARGUMENT(attn_val->shape()[0] == q->shape()[0], "Self-Attention: attention value and query tensors must have the same sequence length.");
     CHECK_ARGUMENT(attn_val->shape()[1] == q->shape()[1], "Self-Attention: attention value and query tensors must have the same number of heads.");
