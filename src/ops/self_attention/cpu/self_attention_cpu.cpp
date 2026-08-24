@@ -39,12 +39,15 @@ void self_attention_(T *attn_val, const T *q, const T *k, const T *v, float scal
                 softmax_scores[k_idx] = std::exp(scores[k_idx] - max_score);
                 sum_exp_scores += softmax_scores[k_idx];
             }
+            for (size_t k_idx = 0; k_idx < valid_end; k_idx++) {
+                softmax_scores[k_idx] /= sum_exp_scores;
+            }
 
             // Pass 3: compute weighted sum
             for (size_t nv = 0; nv < dv; nv++) {
                 float attn_value = 0.0f;
                 for (size_t v_idx = 0; v_idx < valid_end; v_idx++) {
-                    float softmax_score = softmax_scores[v_idx] / sum_exp_scores;
+                    float softmax_score = softmax_scores[v_idx];
                     if constexpr (std::is_same_v<T, llaisys::bf16_t> || std::is_same_v<T, llaisys::fp16_t>) {
                         attn_value += softmax_score * llaisys::utils::cast<float>(v[v_idx * nkvhead * dv + head_idx * dv + nv]);
                     } else {
