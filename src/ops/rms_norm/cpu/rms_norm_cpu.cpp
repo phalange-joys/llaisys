@@ -6,7 +6,7 @@
 
 template <typename T>
 void rms_norm_(T *out, const T *in, const T *weight, float eps, size_t seqlen, size_t in_features) {
-    #pragma omp parallel for
+#pragma omp parallel for
     for (int64_t i = 0; i < static_cast<int64_t>(seqlen); i++) {
         float sum_square = 0.0f;
         for (size_t j = 0; j < in_features; j++) {
@@ -20,6 +20,7 @@ void rms_norm_(T *out, const T *in, const T *weight, float eps, size_t seqlen, s
         }
         float mean_square = sum_square / static_cast<float>(in_features) + eps;
         float rms = std::sqrt(mean_square);
+        float inv_rms = 1.0f / rms;
 
         for (size_t j = 0; j < in_features; j++) {
             float result = 0.0f;
@@ -27,7 +28,7 @@ void rms_norm_(T *out, const T *in, const T *weight, float eps, size_t seqlen, s
             if constexpr (std::is_same_v<T, llaisys::bf16_t> || std::is_same_v<T, llaisys::fp16_t>) {
                 result = llaisys::utils::cast<float>(in[i * in_features + j]) * llaisys::utils::cast<float>(weight[j]) / rms;
             } else {
-                result = in[i * in_features + j] * weight[j] / rms;
+                result = in[i * in_features + j] * weight[j] * inv_rms;
             }
 
             if constexpr (std::is_same_v<T, llaisys::bf16_t> || std::is_same_v<T, llaisys::fp16_t>) {
