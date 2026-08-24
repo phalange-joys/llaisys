@@ -34,11 +34,11 @@ void KVCache::append(tensor_t new_k, tensor_t new_v) {
     CHECK_ARGUMENT(cur_len_ + ntoken <= k_cache_->shape()[0],
                    "KVCache::append: exceeds max sequence length");
 
-    // load cache to slice[cur_len_, cur_len_ + ntoken]
+    // copy new k/v into cache slice at [cur_len_, cur_len_ + ntoken]
     auto k_slice = k_cache_->slice(0, cur_len_, cur_len_ + ntoken);
     auto v_slice = v_cache_->slice(0, cur_len_, cur_len_ + ntoken);
-    k_slice->load(new_k->data());
-    v_slice->load(new_v->data());
+    k_slice->copyFrom(new_k);
+    v_slice->copyFrom(new_v);
 
     cur_len_ += ntoken;
 }

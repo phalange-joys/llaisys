@@ -129,18 +129,6 @@ class Qwen2:
 
                     buf = (ctypes.c_char * data_size).from_buffer_copy(raw_bytes)
 
-                    # debug
-                    # if "model.layers." in name:
-                    #     parts = name.split(".")
-                    #     if len(parts) >= 3:
-                    #         try:
-                    #             layer_idx = int(parts[2])
-                    #             if layer_idx > 1:
-                    #                 print(f"skipping {name} (layer>1)")
-                    #                 continue
-                    #         except ValueError:
-                    #             pass
-
                     result = LIB_LLAISYS.llaisysQwen2ModelLoadWeights(
                         self._model,
                         name.encode("utf-8"),

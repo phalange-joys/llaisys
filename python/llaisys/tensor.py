@@ -1,5 +1,7 @@
 from typing import Sequence, Tuple
 
+import struct
+
 from .libllaisys import (
     LIB_LLAISYS,
     llaisysTensor_t,
@@ -8,7 +10,25 @@ from .libllaisys import (
     llaisysDataType_t,
     DataType,
 )
-from ctypes import c_size_t, c_int, c_ssize_t, c_void_p
+from ctypes import c_size_t, c_int, c_ssize_t, c_void_p, c_byte
+
+# dtype -> struct format for scalar unpacking (little-endian)
+_SCALAR_FMT = {
+    DataType.BYTE: "<b",
+    DataType.BOOL: "<?",
+    DataType.I8: "<b",
+    DataType.I16: "<h",
+    DataType.I32: "<i",
+    DataType.I64: "<q",
+    DataType.U8: "<B",
+    DataType.U16: "<H",
+    DataType.U32: "<I",
+    DataType.U64: "<Q",
+    DataType.F16: "<e",
+    DataType.F32: "<f",
+    DataType.F64: "<d",
+    DataType.BF16: "<H",  # raw bits; converted to float in to_scalar
+}
 
 
 class Tensor:
@@ -111,3 +131,19 @@ class Tensor:
                 self._tensor, llaisysDeviceType_t(device), c_int(device_id)
             )
         )
+
+    def copy_from(self, src: "Tensor"):
+        LIB_LLAISYS.tensorCopyFrom(self._tensor, src.lib_tensor())
+
+    def to_scalar(self):
+        dtype = self.dtype()
+        fmt = _SCALAR_FMT.get(dtype)
+        if fmt is None:
+            raise NotImplementedError(f"to_scalar is not supported for dtype {dtype}")
+        buf = (c_byte * struct.calcsize(fmt))()
+        LIB_LLAISYS.tensorToScalar(self._tensor, buf)
+        value = struct.unpack(fmt, bytes(buf))[0]
+        if dtype == DataType.BF16:
+            # reinterpret bf16 bits as f32 bits (shift left by 16)
+            value = struct.unpack("<f", struct.pack("<I", value << 16))[0]
+        return value

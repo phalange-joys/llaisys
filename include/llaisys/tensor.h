@@ -76,6 +76,14 @@ __C {
         llaisysTensor_t tensor,
         llaisysDeviceType_t device_type,
         int device_id);
+
+    __export void tensorCopyFrom(
+        llaisysTensor_t tensor,
+        llaisysTensor_t src);
+
+    __export void tensorToScalar(
+        llaisysTensor_t tensor,
+        void *out);
 }
 
 #endif // LLAISYS_TENSOR_H

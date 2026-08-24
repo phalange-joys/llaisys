@@ -78,6 +78,36 @@ def test_tensor():
     assert llaisys_tensor_cpu.strides() == torch_tensor_cpu.stride()
     assert check_equal(llaisys_tensor_cpu, torch_tensor_cpu)
 
+    # Test copy_from
+    print("===Test copy_from===")
+    torch_src = torch.arange(6, dtype=torch_dtype("i64")).reshape(2, 3)
+    llaisys_src = llaisys.Tensor(
+        (2, 3), dtype=llaisys_dtype("i64"), device=llaisys_device("cpu")
+    )
+    llaisys_src.load(torch_src.data_ptr())
+    llaisys_dst = llaisys.Tensor(
+        (2, 3), dtype=llaisys_dtype("i64"), device=llaisys_device("cpu")
+    )
+    llaisys_dst.copy_from(llaisys_src)
+    llaisys_dst.debug()
+    assert check_equal(llaisys_dst, torch_src)
+
+    # Test to_scalar
+    print("===Test to_scalar===")
+    torch_scalar = torch.tensor(42, dtype=torch_dtype("i64"))
+    llaisys_scalar = llaisys.Tensor(
+        (1,), dtype=llaisys_dtype("i64"), device=llaisys_device("cpu")
+    )
+    llaisys_scalar.load(torch_scalar.data_ptr())
+    assert llaisys_scalar.to_scalar() == 42
+
+    torch_scalar_f = torch.tensor(3.14, dtype=torch_dtype("f32"))
+    llaisys_scalar_f = llaisys.Tensor(
+        (1,), dtype=llaisys_dtype("f32"), device=llaisys_device("cpu")
+    )
+    llaisys_scalar_f.load(torch_scalar_f.data_ptr())
+    assert abs(llaisys_scalar_f.to_scalar() - 3.14) < 1e-6
+
 
 if __name__ == "__main__":
     test_tensor()

@@ -256,31 +256,54 @@ tensor_t Tensor::contiguous() const {
     if (this->isContiguous()) {
         return std::shared_ptr<Tensor>(new Tensor(_meta, _storage, _offset));
     }
-    // create new tensor
+    // create new tensor on the same device
     const std::vector<size_t> &shape = this->shape();
     tensor_t new_tensor = Tensor::create(shape, this->dtype(), this->deviceType(), this->deviceId());
 
-    std::byte *dst_data = new_tensor->data();
-    size_t total = this->numel();
-    const std::vector<ptrdiff_t> &old_strides = this->strides();
-    const std::byte *src_data = this->data();
+    const size_t total = this->numel();
     const size_t elementSize = this->elementSize();
+    const size_t bytes = total * elementSize;
+    const std::vector<ptrdiff_t> &strides = this->strides();
 
-    // i = linear_idx = (i * dim[0] + j) * dim[1] + k for (i, j, k), only related to shape
+    std::vector<std::byte> host_src;
+    const std::byte *src = this->data();
+
+    const bool is_cpu = this->deviceType() == LLAISYS_DEVICE_CPU;
+    // bring source data to host (no-op on CPU)
+    if (!is_cpu) {
+        host_src.resize(bytes);
+        core::context().runtime().api()->memcpy_sync(
+            host_src.data(), src, bytes, LLAISYS_MEMCPY_D2H);
+        core::context().runtime().api()->device_synchronize();
+        src = host_src.data();
+    }
+
+    // rearrange into contiguous layout on host
+    std::vector<std::byte> host_dst;
+    std::byte *dst = new_tensor->data();
+    if (!is_cpu) {
+        host_dst.resize(bytes);
+        dst = host_dst.data();
+    }
+
+    // linear_idx = (i * dim[0] + j) * dim[1] + k for (i, j, k), only related to shape
     for (size_t i = 0; i < total; i++) {
         // compute offset from last dim
         size_t offset = 0;
         size_t remaining = i;
         for (size_t dim = shape.size(); dim-- > 0;) {
-            const size_t dim_size = shape[dim];
-            const size_t coord = remaining % dim_size; // coor for this dim
-            remaining /= dim_size;
-            offset += coord * static_cast<size_t>(old_strides[dim]);
+            const size_t coord = remaining % shape[dim];
+            remaining /= shape[dim];
+            offset += coord * static_cast<size_t>(strides[dim]);
         }
         // copy element i
-        std::memcpy(dst_data + i * elementSize,
-                    src_data + offset * elementSize,
-                    elementSize);
+        std::memcpy(dst + i * elementSize, src + offset * elementSize, elementSize);
+    }
+
+    if (!is_cpu) {
+        core::context().runtime().api()->memcpy_sync(
+            new_tensor->data(), host_dst.data(), bytes, LLAISYS_MEMCPY_H2D);
+        core::context().runtime().api()->device_synchronize();
     }
 
     return new_tensor;
@@ -351,4 +374,19 @@ tensor_t Tensor::to(llaisysDeviceType_t device_type, int device) const {
     return std::shared_ptr<Tensor>(new Tensor(src->_meta, new_storage, 0));
 }
 
+void Tensor::copyFrom(tensor_t src) {
+    // Use to() to handle any device combination (H2D, D2D, D2H, H2H)
+    tensor_t src_on_same_device = src->to(this->deviceType(), this->deviceId());
+    size_t bytes = this->numel() * this->elementSize();
+    if (this->deviceType() == LLAISYS_DEVICE_CPU) {
+        std::memcpy(this->data(), src_on_same_device->data(), bytes);
+    } else {
+        core::context().runtime().api()->memcpy_sync(
+            this->data(),
+            src_on_same_device->data(),
+            bytes,
+            LLAISYS_MEMCPY_D2D);
+        core::context().runtime().api()->device_synchronize();
+    }
+}
 } // namespace llaisys

@@ -205,8 +205,8 @@ int64_t infer(model_t model, int64_t *token_ids, size_t ntoken) {
     tensor_t max_val = Tensor::create({1}, last_logits->dtype(), last_logits->deviceType(), last_logits->deviceId());
     llaisys::ops::argmax(max_idx, max_val, last_logits);
 
-    auto *data = reinterpret_cast<int64_t *>(max_idx->data());
-    int64_t next_token_id = data[0];
+    // return scale
+    int64_t next_token_id = max_idx->toScalar<int64_t>();
 
     // sample
     // temperature
@@ -259,12 +259,17 @@ tensor_t apply_embedding_(tensor_t token_index, tensor_t in_embed) {
 }
 
 static tensor_t make_pos_ids_(size_t start, size_t len, llaisysDeviceType_t dev, int id) {
-    auto t = Tensor::create({len}, LLAISYS_DTYPE_I64, dev, id);
-    auto *d = reinterpret_cast<int64_t *>(t->data());
+    // Build on CPU first, then transfer to target device
+    auto t_cpu = Tensor::create({len}, LLAISYS_DTYPE_I64, LLAISYS_DEVICE_CPU, 0);
+    auto *d = reinterpret_cast<int64_t *>(t_cpu->data());
     for (size_t i = 0; i < len; i++) {
         d[i] = static_cast<int64_t>(start + i);
     }
-    return t;
+    if (dev == LLAISYS_DEVICE_CPU) {
+        return t_cpu;
+    }
+
+    return t_cpu->to(dev, id);
 }
 tensor_t get_token_index_(tensor_t in_embed, int64_t *token_ids, size_t ntoken) {
     tensor_t out = Tensor::create({ntoken}, LLAISYS_DTYPE_I64, in_embed->deviceType(), in_embed->deviceId());
@@ -361,8 +366,10 @@ int64_t infer_use_cache_(model_t model, int64_t *token_ids, size_t ntoken) {
     tensor_t max_val = Tensor::create({1}, last_logits->dtype(), last_logits->deviceType(), last_logits->deviceId());
     llaisys::ops::argmax(max_idx, max_val, last_logits);
 
-    auto *data = reinterpret_cast<int64_t *>(max_idx->data());
-    return data[0];
+    // return scale
+    int64_t next_token_id = max_idx->toScalar<int64_t>();
+
+    return next_token_id;
 }
 
 tensor_t get_tensor_by_name_(const ModelWeights &weights, const std::string &name) {

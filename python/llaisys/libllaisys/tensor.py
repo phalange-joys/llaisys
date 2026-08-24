@@ -88,3 +88,11 @@ def load_tensor(lib):
     # Function: tensorTo
     lib.tensorTo.argtypes = [llaisysTensor_t, llaisysDeviceType_t, c_int]
     lib.tensorTo.restype = llaisysTensor_t
+
+    # Function: tensorCopyFrom
+    lib.tensorCopyFrom.argtypes = [llaisysTensor_t, llaisysTensor_t]
+    lib.tensorCopyFrom.restype = None
+
+    # Function: tensorToScalar
+    lib.tensorToScalar.argtypes = [llaisysTensor_t, c_void_p]
+    lib.tensorToScalar.restype = None

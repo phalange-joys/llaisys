@@ -1,5 +1,6 @@
 #pragma once
 #include "../core/llaisys_core.hpp"
+#include "../utils/check.hpp"
 
 #include <vector>
 namespace llaisys {
@@ -55,6 +56,26 @@ public:
     tensor_t contiguous() const;
     tensor_t reshape(const std::vector<size_t> &shape) const;
     tensor_t to(llaisysDeviceType_t device_type, int device = -1) const;
+
+    // Additional features
+    // Device-agnostic tensor copy (src can be on any device)
+    void copyFrom(tensor_t src);
+
+    // Device-agnostic scalar read (D2H if needed, then dereference)
+    template <typename T>
+    T toScalar() const;
 };
+
+// Device-agnostic scalar read (D2H if needed, then dereference)
+template <typename T>
+T Tensor::toScalar() const {
+    CHECK_ARGUMENT(this->elementSize() == sizeof(T),
+                   "toScalar type size does not match tensor element size");
+    if (this->deviceType() != LLAISYS_DEVICE_CPU) {
+        auto cpu_tensor = this->to(LLAISYS_DEVICE_CPU, 0);
+        return *reinterpret_cast<const T *>(cpu_tensor->data());
+    }
+    return *reinterpret_cast<const T *>(this->data());
+}
 
 } // namespace llaisys
