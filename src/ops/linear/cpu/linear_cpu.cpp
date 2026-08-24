@@ -6,7 +6,40 @@
 #include <vector>
 
 template <typename T>
+void decode_linear_(T *out, const T *in, const T *weight, const T *bias, size_t seqlen, size_t in_features, size_t out_features) {
+#pragma omp parallel for
+    for (int64_t j = 0; j < (int64_t)out_features; j++) {
+        float sum = 0.0f;
+        for (size_t k = 0; k < in_features; k++) {
+            if constexpr (std::is_same_v<T, llaisys::bf16_t> || std::is_same_v<T, llaisys::fp16_t>) {
+                sum += llaisys::utils::cast<float>(in[k]) * llaisys::utils::cast<float>(weight[j * in_features + k]);
+            } else {
+                sum += in[k] * weight[j * in_features + k];
+            }
+        }
+
+        float bias_val = 0.0f;
+        if (bias != nullptr) {
+            if constexpr (std::is_same_v<T, llaisys::bf16_t> || std::is_same_v<T, llaisys::fp16_t>) {
+                bias_val = llaisys::utils::cast<float>(bias[j]);
+            } else {
+                bias_val = bias[j];
+            }
+        }
+        if constexpr (std::is_same_v<T, llaisys::bf16_t> || std::is_same_v<T, llaisys::fp16_t>) {
+            out[j] = llaisys::utils::cast<T>(sum + bias_val);
+        } else {
+            out[j] = sum + bias_val;
+        }
+    }
+}
+
+template <typename T>
 void linear_(T *out, const T *in, const T *weight, const T *bias, size_t seqlen, size_t in_features, size_t out_features) {
+    if (seqlen == 1) {
+        decode_linear_(out, in, weight, bias, seqlen, in_features, out_features);
+        return;
+    }
 #pragma omp parallel for
     for (int64_t i = 0; i < static_cast<int64_t>(seqlen); i++) {
         // row cahce
@@ -38,11 +71,10 @@ void linear_(T *out, const T *in, const T *weight, const T *bias, size_t seqlen,
                 }
             }
 
-            sum = sum + bias_val;
             if constexpr (std::is_same_v<T, llaisys::bf16_t> || std::is_same_v<T, llaisys::fp16_t>) {
-                out[i * out_features + j] = llaisys::utils::cast<T>(sum);
+                out[i * out_features + j] = llaisys::utils::cast<T>(sum + bias_val);
             } else {
-                out[i * out_features + j] = sum;
+                out[i * out_features + j] = sum + bias_val;
             }
         }
     }
