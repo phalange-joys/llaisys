@@ -3,19 +3,29 @@
 #include "../../../utils.hpp"
 
 #include <cmath>
+#include <vector>
 
 template <typename T>
 void linear_(T *out, const T *in, const T *weight, const T *bias, size_t seqlen, size_t in_features, size_t out_features) {
-    #pragma omp parallel for
+#pragma omp parallel for
     for (int64_t i = 0; i < static_cast<int64_t>(seqlen); i++) {
+        // row cahce
+        std::vector<float> in_row(in_features);
+        for (size_t k = 0; k < in_features; k++) {
+            if constexpr (std::is_same_v<T, llaisys::bf16_t> || std::is_same_v<T, llaisys::fp16_t>) {
+                in_row[k] = llaisys::utils::cast<float>(in[i * in_features + k]);
+            } else {
+                in_row[k] = in[i * in_features + k];
+            }
+        }
+
         for (size_t j = 0; j < out_features; j++) {
             float sum = 0.0f;
             for (size_t k = 0; k < in_features; k++) {
-                // TODO weight cache
                 if constexpr (std::is_same_v<T, llaisys::bf16_t> || std::is_same_v<T, llaisys::fp16_t>) {
-                    sum += llaisys::utils::cast<float>(in[i * in_features + k]) * llaisys::utils::cast<float>(weight[j * in_features + k]);
+                    sum += in_row[k] * llaisys::utils::cast<float>(weight[j * in_features + k]);
                 } else {
-                    sum += in[i * in_features + k] * weight[j * in_features + k];
+                    sum += in_row[k] * weight[j * in_features + k];
                 }
             }
 
