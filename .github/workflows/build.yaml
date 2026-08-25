@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        os: [windows-latest, ubuntu-latest, macos-latest]
         type: [release]
     runs-on: ${{ matrix.os }}
     steps:
@@ -25,6 +25,12 @@ jobs:
       uses: xmake-io/github-action-setup-xmake@v1
       with:
         xmake-version: latest
+    
+    - name: prepare env for macos
+      if: runner.os == 'macOS'
+      run: |
+        brew install gcc
+        gcc --version
     
     - name: Xmake Build & Install
       run: | 

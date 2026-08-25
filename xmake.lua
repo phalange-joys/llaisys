@@ -1,5 +1,16 @@
 add_rules("mode.debug", "mode.release")
+
 set_encodings("utf-8")
+
+-- macOS: brew gcc (native OpenMP)
+includes("xmake/macos.lua")
+if is_plat("macosx") then
+    set_toolchains("brew-gcc")
+    add_cxflags("-isysroot", macos_sdk, {force = true})
+    add_shflags("-isysroot", macos_sdk, {force = true})
+    add_cxflags("-fopenmp")
+    add_shflags("-fopenmp", {force = true})
+end
 
 add_includedirs("include")
 
@@ -13,7 +24,7 @@ option("nv-gpu")
     set_description("Whether to compile implementations for Nvidia GPU")
 option_end()
 
-if has_config("nv-gpu") then
+if get_config("nv-gpu") then
     add_defines("ENABLE_NVIDIA_API")
     includes("xmake/nvidia.lua")
 end
@@ -126,6 +137,9 @@ target("llaisys")
     add_files("src/llaisys/models/*.cc")
     set_installdir(".")
 
+    if not is_plat("macosx") then
+        add_packages("openmp") -- Windows:/openmp, Linux:-fopenmp
+    end
     
     after_install(function (target)
         -- copy shared library to python package
@@ -135,6 +149,9 @@ target("llaisys")
         end
         if is_plat("linux") then
             os.cp("lib/*.so", "python/llaisys/libllaisys/")
+        end
+        if is_plat("macosx") then
+            os.cp("lib/libllaisys.dylib", "python/llaisys/libllaisys/llaisys.dylib")
         end
     end)
 target_end()
