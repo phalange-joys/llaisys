@@ -14,6 +14,10 @@ end
 
 add_includedirs("include")
 
+if not is_plat("macosx") then
+    add_requires("openmp") -- Windows:/openmp, Linux:-fopenmp
+end
+
 -- CPU --
 includes("xmake/cpu.lua")
 
