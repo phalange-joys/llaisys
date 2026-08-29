@@ -3,6 +3,7 @@
 #include "../../core/llaisys_core.hpp"
 #include "../../tensor/tensor.hpp"
 #include "../kv_cache.hpp"
+#include "../utils/sampler.hpp"
 
 #include <memory>
 #include <vector>
@@ -65,6 +66,7 @@ private:
     ModelMeta _meta;
     ModelWeights _weights;
     std::vector<KVCache> _kv_caches;
+    llaisys::model::utils::Sampler _sampler;
     Model(ModelMeta meta, ModelWeights weights);
 
 public:
@@ -78,6 +80,7 @@ public:
     const ModelMeta &meta() const { return _meta; }
     const ModelWeights &weights() const { return _weights; }
     std::vector<KVCache> &kv_caches() { return _kv_caches; }
+    llaisys::model::utils::Sampler &sampler() { return _sampler; }
 };
 
 model_t create(
@@ -94,6 +97,6 @@ void loadWeights(
     const void *data,
     const size_t numel);
 
-int64_t infer(model_t model, int64_t *token_ids, size_t ntoken);
+int64_t infer(model_t model, int64_t *token_ids, size_t ntoken, int64_t top_k, float top_p, float temperature);
 
 } // namespace llaisys::models::qwen2

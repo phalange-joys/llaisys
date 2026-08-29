@@ -56,7 +56,7 @@ class Qwen2:
         for i in range(max_new_tokens):
             c_inputs = (ctypes.c_int64 * len(tokens))(*tokens)
             token_id = LIB_LLAISYS.llaisysQwen2ModelInfer(
-                self._model, c_inputs, len(tokens)
+                self._model, c_inputs, len(tokens), top_k, top_p, temperature
             )
             tokens.append(token_id)
             if token_id == eos_token_id:

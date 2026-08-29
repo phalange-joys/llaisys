@@ -17,6 +17,6 @@ __C {
     // load single tensor weights
     __export int llaisysQwen2ModelLoadWeights(struct LlaisysQwen2Model * model, const char *name, const void *data, size_t numel);
 
-    __export int64_t llaisysQwen2ModelInfer(struct LlaisysQwen2Model * model, int64_t * token_ids, size_t ntoken);
+    __export int64_t llaisysQwen2ModelInfer(struct LlaisysQwen2Model * model, int64_t *token_ids, size_t ntoken, int64_t top_k, float top_p, float temperature);
 }
 #endif // LLAISYS_MODELS_QWEN2_H

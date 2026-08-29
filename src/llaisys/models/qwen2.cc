@@ -58,10 +58,10 @@ __C {
         return 0;
     }
 
-    int64_t llaisysQwen2ModelInfer(LlaisysQwen2Model * model, int64_t * token_ids, size_t ntoken) {
+    int64_t llaisysQwen2ModelInfer(LlaisysQwen2Model * model, int64_t *token_ids, size_t ntoken, int64_t top_k, float top_p, float temperature) {
         if (!model) {
             return 0;
         }
-        return llaisys::models::qwen2::infer(model->model, token_ids, ntoken);
+        return llaisys::models::qwen2::infer(model->model, token_ids, ntoken, top_k, top_p, temperature);
     }
 }
