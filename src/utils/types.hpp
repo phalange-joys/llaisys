@@ -185,17 +185,46 @@ inline fp16_t _f32_to_f16(float val) {
         if (exponent == 128 && mantissa != 0) {
             return fp16_t{static_cast<uint16_t>(sign | 0x7E00)};
         }
-        // Infinity
+        // Infinity or overflow (exp>=16 after RNE)
         return fp16_t{static_cast<uint16_t>(sign | 0x7C00)};
-    } else if (exponent >= -14) { // Normalized case
-        return fp16_t{(uint16_t)(sign | ((exponent + 15) << 10) | (mantissa >> 13))};
-    } else if (exponent >= -24) {
+    } else if (exponent >= -14) { // Normalized case: RNE rounding
+        // RNE: round_half_to_even on the 13 discarded mantissa bits
+        // half = 0x1000 (bit 12), lsb = bit 10 of result (= bit 23 of f32)
+        uint32_t lsb = (mantissa >> 13) & 1;
+        uint32_t rounded_mantissa = (mantissa + 0x0FFF + lsb) >> 13;
+        // RNE overflow: mantissa rounds up past 10 bits → exponent+1, mantissa=0
+        if (rounded_mantissa > 0x3FF) {
+            exponent++;
+            rounded_mantissa = 0;
+            if (exponent >= 16) {
+                return fp16_t{static_cast<uint16_t>(sign | 0x7C00)}; // overflow → Inf
+            }
+        }
+        return fp16_t{static_cast<uint16_t>(sign | ((exponent + 15) << 10) | rounded_mantissa)};
+    } else if (exponent >= -25) { // Subnormal case: RNE rounding
         mantissa |= 0x800000; // Add implicit leading 1
-        mantissa >>= (-14 - exponent);
-        return fp16_t{(uint16_t)(sign | (mantissa >> 13))};
+        int shift = -14 - exponent; // shift amount: 1 to 11
+        uint32_t shifted = mantissa >> shift;
+        // RNE on 13 discarded bits of the shifted value
+        uint32_t lsb = (shifted >> 13) & 1;
+        uint32_t rounded = (shifted + 0x0FFF + lsb) >> 13;
+        // Rounding overflow: subnormal → smallest normal
+        if (rounded > 0x3FF) {
+            return fp16_t{static_cast<uint16_t>(sign | (1 << 10))}; // 2^(-14)
+        }
+        return fp16_t{static_cast<uint16_t>(sign | rounded)};
     } else {
-        // Too small for subnormal: return signed zero
-        return fp16_t{(uint16_t)sign};
+        // Too small for subnormal: RNE to zero or min subnormal
+        // Only round up when exactly at half of min subnormal with odd bit
+        mantissa |= 0x800000;
+        int shift = -14 - exponent; // shift > 11
+        uint32_t shifted = mantissa >> shift;
+        uint32_t lsb = (shifted >> 13) & 1;
+        uint32_t rounded = (shifted + 0x0FFF + lsb) >> 13;
+        if (rounded > 0) {
+            return fp16_t{static_cast<uint16_t>(sign | rounded)};
+        }
+        return fp16_t{static_cast<uint16_t>(sign)};
     }
 }
 
